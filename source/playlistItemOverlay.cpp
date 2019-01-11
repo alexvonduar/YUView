@@ -34,7 +34,6 @@
 
 #include <limits>
 #include <QPainter>
-#include "signalsSlots.h"
 
 #define PLAYLISTITEMOVERLAY_DEBUG 0
 #if PLAYLISTITEMOVERLAY_DEBUG && !NDEBUG
@@ -123,7 +122,7 @@ itemLoadingState playlistItemOverlay::needsLoading(int frameIdx, bool loadRawdat
   {
     if (getChildPlaylistItem(i)->needsLoading(frameIdx, loadRawdata) == LoadingNeeded)
     {
-      DEBUG_OVERLAY("playlistItemOverlay::needsLoading LoadingNeeded child %s", child->getName().toLatin1().data());
+      DEBUG_OVERLAY("playlistItemOverlay::needsLoading LoadingNeeded child %s", getChildPlaylistItem(i)->getName().toLatin1().data());
       return LoadingNeeded;
     }
   }
@@ -131,7 +130,7 @@ itemLoadingState playlistItemOverlay::needsLoading(int frameIdx, bool loadRawdat
   {
     if (getChildPlaylistItem(i)->needsLoading(frameIdx, loadRawdata) == LoadingNeededDoubleBuffer)
     {
-      DEBUG_OVERLAY("playlistItemOverlay::needsLoading LoadingNeededDoubleBuffer child %s", child->getName().toLatin1().data());
+      DEBUG_OVERLAY("playlistItemOverlay::needsLoading LoadingNeededDoubleBuffer child %s", getChildPlaylistItem(i)->getName().toLatin1().data());
       return LoadingNeededDoubleBuffer;
     }
   }
@@ -153,7 +152,7 @@ void playlistItemOverlay::drawItem(QPainter *painter, int frameIdx, double zoomF
     return;
   }
 
-  // Update the layout if the number of items changed
+  // Update the layout if the number of items changedupdateLayout
   updateLayout();
 
   // Translate to the center of this overlay item
@@ -208,6 +207,15 @@ void playlistItemOverlay::updateLayout(bool checkNumber)
     }
   }
 
+  // Update the layout in all children which are also playlistItemOverlays
+  for (int i = 0; i < childCount(); i++)
+  {
+    playlistItem *childItem = getChildPlaylistItem(i);
+    playlistItemOverlay *childOverlay = dynamic_cast<playlistItemOverlay*>(childItem);
+    if (childOverlay)
+      childOverlay->updateLayout();
+  }
+
   playlistItem *firstItem = getChildPlaylistItem(0);
   boundingRect.setSize(firstItem->getSize());
   boundingRect.moveCenter(QPoint(0,0));
@@ -216,9 +224,14 @@ void playlistItemOverlay::updateLayout(bool checkNumber)
   firstItemRect.setSize(firstItem->getSize());
   firstItemRect.moveCenter(QPoint(0,0));
   childItems[0] = firstItemRect;
+  DEBUG_OVERLAY("playlistItemOverlay::updateLayout item 0 size (%d,%d) firstItemRect (%d,%d)", firstItem->getSize().width(), firstItem->getSize().height(), firstItemRect.left(), firstItemRect.top());
 
   // Align the rest of the items
-  int alignmentMode = ui.alignmentMode->currentIndex();
+  int alignmentMode = 0;
+  if (propertiesWidget != nullptr)
+    alignmentMode = ui.alignmentMode->currentIndex();
+
+  DEBUG_OVERLAY("playlistItemOverlay::updateLayout childCount %d", childCount());
   for (int i = 1; i < childCount(); i++)
   {
     playlistItem *childItem = getChildPlaylistItem(i);
@@ -254,6 +267,8 @@ void playlistItemOverlay::updateLayout(bool checkNumber)
 
       // Set item bounding rectangle
       childItems[i] = targetRect;
+
+      DEBUG_OVERLAY("playlistItemOverlay::updateLayout item %d size (%d,%d) alignmentMode %d targetRect (%d,%d)", i, childSize.width(), childSize.height(), alignmentMode, targetRect.left(), targetRect.top());
 
       // Expand the bounding rectangle
       boundingRect = boundingRect.united(targetRect);
@@ -291,9 +306,9 @@ void playlistItemOverlay::createPropertiesWidget()
   ui.verticalLayout->insertLayout(3,createContainerItemControls());
 
   // Connect signals/slots
-  connect(ui.alignmentMode, QComboBox_currentIndexChanged_int, this, &playlistItemOverlay::controlChanged);
-  connect(ui.alignmentHozizontal, QSpinBox_valueChanged_int, this, &playlistItemOverlay::controlChanged);
-  connect(ui.alignmentVertical, QSpinBox_valueChanged_int, this, &playlistItemOverlay::controlChanged);
+  connect(ui.alignmentMode, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &playlistItemOverlay::controlChanged);
+  connect(ui.alignmentHozizontal, QOverload<int>::of(&QSpinBox::valueChanged), this, &playlistItemOverlay::controlChanged);
+  connect(ui.alignmentVertical, QOverload<int>::of(&QSpinBox::valueChanged), this, &playlistItemOverlay::controlChanged);
 }
 
 void playlistItemOverlay::savePlaylist(QDomElement &root, const QDir &playlistDir) const
@@ -327,6 +342,7 @@ playlistItemOverlay *playlistItemOverlay::newPlaylistItemOverlay(const QDomEleme
   newOverlay->alignmentMode = alignment;
   newOverlay->manualAlignment = QPoint(manualAlignmentX, manualAlignmentY);
 
+  DEBUG_OVERLAY("playlistItemOverlay::newPlaylistItemOverlay alignmentMode %d manualAlignment (%d,%d)", alignment, manualAlignmentX, manualAlignmentY);
   playlistItem::loadPropertiesFromPlaylist(root, newOverlay);
 
   return newOverlay;
@@ -344,10 +360,10 @@ void playlistItemOverlay::controlChanged(int idx)
   // No new item was added but update the layout of the items
   updateLayout(false);
 
-  emit signalItemChanged(true, false);
+  emit signalItemChanged(true, RECACHE_NONE);
 }
 
-void playlistItemOverlay::childChanged(bool redraw, bool recache)
+void playlistItemOverlay::childChanged(bool redraw, recacheIndicator recache)
 {
   if (redraw)
     updateLayout(false);
@@ -380,7 +396,7 @@ void playlistItemOverlay::loadFrame(int frameIdx, bool playing, bool loadRawData
   }
 
   if (emitSignals && itemLoaded)
-    emit signalItemChanged(true, false);
+    emit signalItemChanged(true, RECACHE_NONE);
   if (emitSignals && itemLoadedDoubleBuffer)
     emit signalItemDoubleBufferLoaded();
 }

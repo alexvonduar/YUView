@@ -88,15 +88,12 @@ public:
   // Test the conversion speed with the currently selected item
   void testConversionSpeed();
 
-signals:
-  // Caching of the given item is done because as much as possible from the given item was cached.
-  void cachingOfItemDone(playlistItem *item);
-
 private slots:
 
   // This signal is sent from the playlistTreeWidget if something changed (another item was selected ...)
-  // The video Cache will then re-evaluate what to cache next and start the cache worker.
-  void playlistChanged();
+  // The video Cache will then re-evaluate what to cache next and start the cache worker. If caching is
+  // currently running, the update will be performed when the currently running caching jobs are done.
+  void scheduleCachingListUpdate();
 
   // The cacheThread finished. If we requested the interruption, update the cache queue and restart.
   // If the thread finished by itself, push the next item into it or goto idle state if there is no more things
@@ -111,7 +108,7 @@ private slots:
   void itemAboutToBeDeleted(playlistItem* item);
 
   // Something about the given playlistitem changed so that all items in the cache are now invalid.
-  void itemNeedsRecache(playlistItem* item);
+  void itemNeedsRecache(playlistItem* item, recacheIndicator itemNeedsRecache);
 
   // update the caching rate at the video cache controller every 1s
   void updateCachingRate(unsigned int cacheRate) { cacheRateInBytesPerMs = cacheRate; }
@@ -194,11 +191,11 @@ private:
 
   // Get the next item and frame to cache from the queue and push it to the given worker.
   // Return false if there are no more jobs to be pushed.
-  bool pushNextJobToThread(loadingThread *thread);
+  bool pushNextJobToCachingThread(loadingThread *thread);
   
   bool updateCacheQueueAndRestartWorker;
 
-  // This item is watched. When caching of it is done, we will emit cachingOfItemDone().
+  // This item is watched. When caching of it is done, we will notify the playback controller.
   playlistItem *watchingItem;
 
   // If visible, we will show the current status of the threads in here

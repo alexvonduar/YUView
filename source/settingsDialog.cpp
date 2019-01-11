@@ -59,6 +59,7 @@ SettingsDialog::SettingsDialog(QWidget *parent) :
   // "Generals" tab
   ui.checkBoxWatchFiles->setChecked(settings.value("WatchFiles", true).toBool());
   ui.checkBoxContinuePlaybackNewSelection->setChecked(settings.value("ContinuePlaybackOnSequenceSelection", false).toBool());
+  ui.checkBoxAskToSave->setChecked(settings.value("AskToSaveOnExit", true).toBool());
   // UI
   QString theme = settings.value("Theme", "Default").toString();
   int themeIdx = getThemeNameList().indexOf(theme);
@@ -81,6 +82,7 @@ SettingsDialog::SettingsDialog(QWidget *parent) :
   QColor gridLineColor = settings.value("OverlayGrid/Color").value<QColor>();
   ui.frameBackgroundColor->setPlainColor(backgroundColor);
   ui.frameGridLineColor->setPlainColor(gridLineColor);
+  ui.checkBoxPlaybackControlFullScreen->setChecked(settings.value("ShowPlaybackControlFullScreen", false).toBool());
   // Updates settings
   settings.beginGroup("updates");
   bool checkForUpdates = settings.value("checkForUpdates", true).toBool();
@@ -306,12 +308,14 @@ void SettingsDialog::on_pushButtonSave_clicked()
   // "General" tab
   settings.setValue("WatchFiles", ui.checkBoxWatchFiles->isChecked());
   settings.setValue("ContinuePlaybackOnSequenceSelection", ui.checkBoxContinuePlaybackNewSelection->isChecked());
+  settings.setValue("AskToSaveOnExit", ui.checkBoxAskToSave->isChecked());
   // UI
   settings.setValue("Theme", ui.comboBoxTheme->currentText());
   settings.setValue("SplitViewLineStyle", ui.comboBoxSplitLineStyle->currentText());
   settings.setValue("MouseMode", ui.comboBoxMouseMode->currentText());
   settings.setValue("Background/Color", ui.frameBackgroundColor->getPlainColor());
   settings.setValue("OverlayGrid/Color", ui.frameGridLineColor->getPlainColor());
+  settings.setValue("ShowPlaybackControlFullScreen", ui.checkBoxPlaybackControlFullScreen->isChecked());
   // Update settings
   settings.beginGroup("updates");
   settings.setValue("checkForUpdates", ui.groupBoxUpdates->isChecked());

@@ -34,6 +34,7 @@
 
 #include <QBuffer>
 #include <QFileDialog>
+#include <QHeaderView>
 #include <QInputDialog>
 #include <QMenu>
 #include <QMessageBox>
@@ -41,7 +42,16 @@
 #include <QPainter>
 #include <QScopedValueRollback>
 #include <QSettings>
+#include <QHeaderView>
 #include "playlistItems.h"
+
+// Activate this if you want to know when which signals/slots are handled
+#define PLAYLISTTREEWIDGET_DEBUG_EVENTS 0
+#if PLAYLISTTREEWIDGET_DEBUG_EVENTS && !NDEBUG
+#define DEBUG_TREE_WIDGET qDebug
+#else
+#define DEBUG_TREE_WIDGET(fmt,...) ((void)0)
+#endif
 
 class bufferStatusWidget : public QWidget
 {
@@ -64,7 +74,7 @@ public:
 
     // Draw the cached frames
     QList<int> frameList = plItem->getCachedFrames();
-    indexRange range = plItem->getFrameIndexRange();
+    indexRange range = plItem->getFrameIdxRange();
     if (frameList.count() > 0)
     {
       int lastPos = frameList[0];
@@ -90,7 +100,7 @@ public:
 
     // Draw the percentage as text
     //painter.setPen(Qt::black);
-    float bufferPercent = (float)plItem->getCachedFrames().count() / (float)(range.second + 1 - range.first) * 100;
+    float bufferPercent = (float)frameList.count() / (float)(range.second + 1 - range.first) * 100;
     QString pTxt = QString::number(bufferPercent, 'f', 0) + "%";
     painter.drawText(0, 0, s.width(), s.height(), Qt::AlignCenter, pTxt);
 
@@ -412,21 +422,22 @@ void PlaylistTreeWidget::slotSelectionChanged()
   emit playlistChanged();
 }
 
-void PlaylistTreeWidget::slotItemChanged(bool redraw, bool recache)
+void PlaylistTreeWidget::slotItemChanged(bool redraw, recacheIndicator recache)
 {
   // Check if the calling object is (one of) the currently selected item(s)
   auto items = getSelectedItems();
   QObject *sender = QObject::sender();
   if (sender == items[0] || sender == items[1])
   {
+    DEBUG_TREE_WIDGET("PlaylistTreeWidget::slotItemChanged sender %s", sender == items[0] ? "items[0]" : "items[1]");
     // One of the currently selected items send this signal. Inform the playbackController that something might have changed.
     emit selectedItemChanged(redraw);
   }
 
-  if (recache)
+  if (recache != RECACHE_NONE)
   {
     playlistItem *senderItem = dynamic_cast<playlistItem*>(sender);
-    emit signalItemRecache(senderItem);
+    emit signalItemRecache(senderItem, recache);
   }
 }
 

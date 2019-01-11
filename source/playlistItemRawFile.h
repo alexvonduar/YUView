@@ -81,17 +81,16 @@ public:
 public slots:
   // Load the raw data for the given frame index from file. This slot is called by the videoHandler if the frame that is
   // requested to be drawn has not been loaded yet.
-  virtual void loadRawData(int frameIdx);
+  virtual void loadRawData(int frameIdxInternal);
 
 protected:
+  // Override from playlistItemIndexed. For a raw file the index range is 0...numFrames-1. 
+  virtual indexRange getStartEndFrameLimits() const Q_DECL_OVERRIDE { return indexRange(0, getNumberFrames() - 1); }
 
   // Try to get and set the format from file name. If after calling this function isFormatValid()
   // returns false then it failed.
   void setFormatFromFileName();
-
-  // Override from playlistItemIndexed. For a raw file the index range is 0...numFrames-1. 
-  virtual indexRange getStartEndFrameLimits() const Q_DECL_OVERRIDE { return indexRange(0, getNumberFrames()-1); }
-
+  
 private:
 
   typedef enum
@@ -121,7 +120,7 @@ private:
   // offsets for each raw YUV frame.
   bool parseY4MFile();
   bool isY4MFile;
-  QList<int> y4mFrameIndices;
+  QList<quint64> y4mFrameIndices;
 };
 
 #endif // PLAYLISTITEMRAWFILE_H

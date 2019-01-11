@@ -90,7 +90,8 @@ infoData playlistItemDifference::getInfo() const
 
 void playlistItemDifference::drawItem(QPainter *painter, int frameIdx, double zoomFactor, bool drawRawData)
 {
-  DEBUG_DIFF("playlistItemDifference::drawItem frameIdx %d %s", frameIdx, childLlistUpdateRequired ? "childLlistUpdateRequired" : "");
+  const int frameIdxInternal = getFrameIdxInternal(frameIdx);
+  DEBUG_DIFF("playlistItemDifference::drawItem frameIdx %d %s", frameIdxInternal, childLlistUpdateRequired ? "childLlistUpdateRequired" : "");
   if (childLlistUpdateRequired)
   {
     // Update the 'childList' and connect the signals/slots
@@ -117,10 +118,14 @@ void playlistItemDifference::drawItem(QPainter *painter, int frameIdx, double zo
 
   if (childCount() != 2 || !difference.inputsValid())
     // Draw the emptyText
-    playlistItem::drawItem(painter, frameIdx, zoomFactor, drawRawData);
+    playlistItem::drawItem(painter, -1, zoomFactor, drawRawData);
   else
+  {
     // draw the videoHandler
-    difference.drawFrame(painter, frameIdx, zoomFactor, drawRawData);
+    int idx0 = getChildPlaylistItem(0)->getFrameIdxInternal(frameIdxInternal);
+    int idx1 = getChildPlaylistItem(1)->getFrameIdxInternal(frameIdxInternal);
+    difference.drawDifferenceFrame(painter, frameIdxInternal, idx0, idx1, zoomFactor, drawRawData);
+  }
 }
 
 QSize playlistItemDifference::getSize() const
@@ -187,14 +192,17 @@ playlistItemDifference *playlistItemDifference::newPlaylistItemDifference(const 
 ValuePairListSets playlistItemDifference::getPixelValues(const QPoint &pixelPos, int frameIdx)
 {
   ValuePairListSets newSet;
+  const int frameIdxInternal = getFrameIdxInternal(frameIdx);
+  const int frameIdxInternalA = getChildPlaylistItem(0)->getFrameIdxInternal(frameIdxInternal);
+  const int frameIdxInternalB = getChildPlaylistItem(1)->getFrameIdxInternal(frameIdxInternal);
 
   if (childCount() >= 1)
-    newSet.append("Item A", getChildPlaylistItem(0)->getFrameHandler()->getPixelValues(pixelPos, frameIdx));
+    newSet.append("Item A", getChildPlaylistItem(0)->getFrameHandler()->getPixelValues(pixelPos, frameIdxInternalA));
 
   if (childCount() >= 2)
   {
-    newSet.append("Item B", getChildPlaylistItem(1)->getFrameHandler()->getPixelValues(pixelPos, frameIdx));
-    newSet.append("Diff (A-B)", difference.getPixelValues(pixelPos, frameIdx));
+    newSet.append("Item B", getChildPlaylistItem(1)->getFrameHandler()->getPixelValues(pixelPos, frameIdxInternalB));
+    newSet.append("Diff (A-B)", difference.getPixelValues(pixelPos, frameIdxInternalA, nullptr, frameIdxInternalB));
   }
 
   return newSet;
@@ -203,28 +211,37 @@ ValuePairListSets playlistItemDifference::getPixelValues(const QPoint &pixelPos,
 void playlistItemDifference::loadFrame(int frameIdx, bool playing, bool loadRawData, bool emitSignals) 
 {
   Q_UNUSED(playing);
-
-  auto state = difference.needsLoading(frameIdx, loadRawData);
+  if (childCount() != 2 || !difference.inputsValid())
+    return;
+  const int frameIdxInternal = getFrameIdxInternal(frameIdx);
+  
+  auto state = difference.needsLoading(frameIdxInternal, loadRawData);
   if (state == LoadingNeeded)
   {
     // Load the requested current frame
-    DEBUG_DIFF("playlistItemDifference::loadFrame loading difference for frame %d", frameIdx);
+    DEBUG_DIFF("playlistItemDifference::loadFrame loading difference for frame %d", frameIdxInternal);
     isDifferenceLoading = true;
-    difference.loadFrame(frameIdx);
+    // Since every playlist item can have it's own relative indexing, we need two frame indices
+    int idx0 = getChildPlaylistItem(0)->getFrameIdxInternal(frameIdxInternal);
+    int idx1 = getChildPlaylistItem(1)->getFrameIdxInternal(frameIdxInternal);
+    difference.loadFrameDifference(frameIdxInternal, idx0, idx1);
     isDifferenceLoading = false;
     if (emitSignals)
-      emit signalItemChanged(true, false);
+      emit signalItemChanged(true, RECACHE_NONE);
   }
   
   if (playing && (state == LoadingNeeded || state == LoadingNeededDoubleBuffer))
   {
     // Load the next frame into the double buffer
-    int nextFrameIdx = frameIdx + 1;
+    int nextFrameIdx = frameIdxInternal + 1;
     if (nextFrameIdx <= startEndFrame.second)
     {
       DEBUG_DIFF("playlistItemDifference::loadFrame loading difference into double buffer %d %s", nextFrameIdx, playing ? "(playing)" : "");
       isDifferenceLoadingToDoubleBuffer = true;
-      difference.loadFrame(nextFrameIdx, true);
+      // Since every playlist item can have it's own relative indexing, we need two frame indices
+      int idx0 = getChildPlaylistItem(0)->getFrameIdxInternal(nextFrameIdx);
+      int idx1 = getChildPlaylistItem(1)->getFrameIdxInternal(nextFrameIdx);
+      difference.loadFrameDifference(frameIdxInternal, idx0, idx1, true);
       isDifferenceLoadingToDoubleBuffer = false;
       if (emitSignals)
         emit signalItemDoubleBufferLoaded();
@@ -232,7 +249,7 @@ void playlistItemDifference::loadFrame(int frameIdx, bool playing, bool loadRawD
   }
 }
 
-void playlistItemDifference::childChanged(bool redraw, bool recache)
+void playlistItemDifference::childChanged(bool redraw, recacheIndicator recache)
 {
   // One of the child items changed and needs to redraw. This means that the difference is out of date
   // and has to be recalculated.

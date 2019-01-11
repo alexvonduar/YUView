@@ -52,6 +52,8 @@ public:
   * There are some modes that the playlist item can have: 
   * Static: The item is shown for a specific amount of time. There is no concept of "frames" for these items.
   * Indexed: The item is indexed by frames. The item is shown by displaying all frames at it's framerate.
+  * Indexing is transparent to the internal handling of numbers. The index always ranges from 0 to getEndFrameIdx().
+  * Internally, the real index in the sequence is calculated using the set start/end frames. 
   */
   typedef enum
   {
@@ -114,19 +116,10 @@ public:
 
   // ----- playlistItem_Indexed
   // if the item is indexed by frame (isIndexedByFrame() returns true) the following functions return the corresponding values:
-  virtual double getFrameRate()           const { return frameRate; }
-  virtual int    getSampling()            const { return sampling; }
-  virtual indexRange getFrameIndexRange() const { return startEndFrame; }   // range -1,-1 is returned if the item cannot be drawn
-
-  /* If your item type is playlistItem_Indexed, you must
-  provide the absolute minimum and maximum frame indices that the user can set.
-  Normally this is: (0, numFrames-1). This value can change. Just emit a
-  signalItemChanged to update the limits.
-  */
-  virtual indexRange getStartEndFrameLimits() const { return indexRange(-1, -1); }
-
-  void setStartEndFrame(indexRange range, bool emitSignal);
-
+  virtual double     getFrameRate()      const { return frameRate; }
+  virtual int        getSampling()       const { return sampling; }
+  virtual indexRange getFrameIdxRange()  const;
+  
   // ------ playlistItem_Static
   // If the item is static, the following functions return the corresponding values:
   double getDuration() const { return duration; }
@@ -189,10 +182,12 @@ public:
   virtual void cacheFrame(int idx, bool testMode) { Q_UNUSED(idx); Q_UNUSED(testMode); }
   // Get a list of all cached frames (just the frame indices)
   virtual QList<int> getCachedFrames() const { return QList<int>(); }
+  virtual int getNumberCachedFrames() const { return 0; }
   // How many bytes will caching one frame use (in bytes)?
   virtual unsigned int getCachingFrameSize() const { return 0; }
-  // Remove the frame with the given index from the cache. If the index is -1, remove all frames from the cache.
+  // Remove the frame with the given index from the cache.
   virtual void removeFrameFromCache(int idx) { Q_UNUSED(idx); }
+  virtual void removeAllFramesFromCache() {};
 
   // ----- Detection of source/file change events -----
 
@@ -206,19 +201,33 @@ public:
   // If the settings change, this is called. Every playlistItem should update the icons and 
   // install/remove the file watchers if this function is called.
   virtual void updateSettings() {}
+
+  /* If your item type is playlistItem_Indexed, you must
+  provide the absolute minimum and maximum frame indices that the user can set.
+  Normally this is: (0, numFrames-1). This value can change. Just emit a
+  signalItemChanged to update the limits.
+  */
+  virtual indexRange getStartEndFrameLimits() const { return indexRange(-1, -1); }
+
+  // Using the set start frame, get the index within the item.
+  int getFrameIdxInternal(int frameIdx) const { return frameIdx + startEndFrame.first; }
+  int getFrameIdxExternal(int frameIdxInternal) const { return frameIdxInternal - startEndFrame.first; }
   
 signals:
   // Something in the item changed. If redraw is set, a redraw of the item is necessary.
   // If recache is set, the entire cache is now invalid and needs to be recached. This is passed to the
   // video cache, which will wait for all caching jobs to finish, clear the cache and recache everything.
   // This will trigger the tree widget to update it's contents.
-  void signalItemChanged(bool redraw, bool recache);
+  void signalItemChanged(bool redraw, recacheIndicator recache);
 
   // The item finished loading a frame into the double buffer. This is relevant if playback is paused and waiting
   // for the item to load the next frame into the double buffer. This will restart the timer. 
   void signalItemDoubleBufferLoaded();
   
 protected:
+
+  void setStartEndFrame(indexRange range, bool emitSignal);
+
   // Save the given item name or filename that is given when constricting a playlistItem.
   QString plItemNameOrFileName;
 
@@ -252,7 +261,6 @@ protected:
   double      frameRate;
   int         sampling;
   indexRange  startEndFrame;
-  bool        startEndFrameChanged;  //< Has the user changed the start/end frame yet?
 
   // ------ playlistItem_Static
   double duration;    // The duration that this item is shown for

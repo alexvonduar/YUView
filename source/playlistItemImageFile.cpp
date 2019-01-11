@@ -75,7 +75,7 @@ void playlistItemImageFile::loadFrame(int frameIndex, bool playing, bool loadRaw
   needToLoadImage = false;
 
   if (emitSignals)
-    emit signalItemChanged(true, false);
+    emit signalItemChanged(true, RECACHE_NONE);
 }
 
 void playlistItemImageFile::savePlaylist(QDomElement &root, const QDir &playlistDir) const
@@ -164,8 +164,10 @@ void playlistItemImageFile::getSupportedFileExtensions(QStringList &allExtension
 
 ValuePairListSets playlistItemImageFile::getPixelValues(const QPoint &pixelPos, int frameIdx)
 {
+  Q_UNUSED(frameIdx);
+
   ValuePairListSets newSet;
-  newSet.append("RGB", frame.getPixelValues(pixelPos, frameIdx));
+  newSet.append("RGB", frame.getPixelValues(pixelPos, -1));
   return newSet;
 }
 

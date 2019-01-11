@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>408</width>
-    <height>490</height>
+    <width>525</width>
+    <height>492</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -17,7 +17,7 @@
    <item>
     <widget class="QTabWidget" name="tabWidget">
      <property name="currentIndex">
-      <number>0</number>
+      <number>2</number>
      </property>
      <widget class="QWidget" name="tabGeneral">
       <attribute name="title">
@@ -50,6 +50,16 @@
          </property>
          <property name="text">
           <string>Continue playback when a new sequence is selected</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QCheckBox" name="checkBoxAskToSave">
+         <property name="text">
+          <string>Ask to save playlist on exit</string>
+         </property>
+         <property name="checked">
+          <bool>true</bool>
          </property>
         </widget>
        </item>
@@ -118,6 +128,26 @@
             </item>
            </layout>
           </item>
+          <item row="1" column="1">
+           <widget class="QComboBox" name="comboBoxSplitLineStyle">
+            <property name="toolTip">
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;When the split- and comparison view is activated, this defines how the position of the split line is indicated:&lt;/p&gt;&lt;p&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Solid Line&lt;/span&gt;: A solid white line&lt;/p&gt;&lt;p&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Handlers: &lt;/span&gt;Only show small triangular handlers at the top and bottom&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            </property>
+            <property name="whatsThis">
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;When the split- and comparison view is activated, this defines how the position of the split line is indicated:&lt;/p&gt;&lt;p&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Solid Line&lt;/span&gt;: A solid white line&lt;/p&gt;&lt;p&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Handlers: &lt;/span&gt;Only show small triangular handlers at the top and bottom&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            </property>
+            <item>
+             <property name="text">
+              <string>Solid Line</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>Handlers</string>
+             </property>
+            </item>
+           </widget>
+          </item>
           <item row="1" column="0">
            <widget class="QLabel" name="labelSplitLineStyle">
             <property name="toolTip">
@@ -128,19 +158,6 @@
             </property>
             <property name="text">
              <string>Split line style</string>
-            </property>
-           </widget>
-          </item>
-          <item row="2" column="0">
-           <widget class="QLabel" name="labelMouseMode">
-            <property name="toolTip">
-             <string>Which of the two mouse buttons is to be used for moving and which for zooming the view?</string>
-            </property>
-            <property name="whatsThis">
-             <string>Which of the two mouse buttons is to be used for moving and which for zooming the view?</string>
-            </property>
-            <property name="text">
-             <string>Mouse button behavior</string>
             </property>
            </widget>
           </item>
@@ -164,6 +181,29 @@
             </item>
            </widget>
           </item>
+          <item row="0" column="0">
+           <widget class="QLabel" name="labelTheme">
+            <property name="text">
+             <string>Theme</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QComboBox" name="comboBoxTheme"/>
+          </item>
+          <item row="2" column="0">
+           <widget class="QLabel" name="labelMouseMode">
+            <property name="toolTip">
+             <string>Which of the two mouse buttons is to be used for moving and which for zooming the view?</string>
+            </property>
+            <property name="whatsThis">
+             <string>Which of the two mouse buttons is to be used for moving and which for zooming the view?</string>
+            </property>
+            <property name="text">
+             <string>Mouse button behavior</string>
+            </property>
+           </widget>
+          </item>
           <item row="4" column="0">
            <widget class="QLabel" name="labelGridLineColor">
             <property name="toolTip">
@@ -175,26 +215,6 @@
             <property name="text">
              <string>Grid Line Color</string>
             </property>
-           </widget>
-          </item>
-          <item row="1" column="1">
-           <widget class="QComboBox" name="comboBoxSplitLineStyle">
-            <property name="toolTip">
-             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;When the split- and comparison view is activated, this defines how the position of the split line is indicated:&lt;/p&gt;&lt;p&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Solid Line&lt;/span&gt;: A solid white line&lt;/p&gt;&lt;p&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Handlers: &lt;/span&gt;Only show small triangular handlers at the top and bottom&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-            </property>
-            <property name="whatsThis">
-             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;When the split- and comparison view is activated, this defines how the position of the split line is indicated:&lt;/p&gt;&lt;p&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Solid Line&lt;/span&gt;: A solid white line&lt;/p&gt;&lt;p&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Handlers: &lt;/span&gt;Only show small triangular handlers at the top and bottom&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-            </property>
-            <item>
-             <property name="text">
-              <string>Solid Line</string>
-             </property>
-            </item>
-            <item>
-             <property name="text">
-              <string>Handlers</string>
-             </property>
-            </item>
            </widget>
           </item>
           <item row="4" column="1">
@@ -237,15 +257,31 @@
             </item>
            </layout>
           </item>
-          <item row="0" column="0">
-           <widget class="QLabel" name="labelTheme">
+          <item row="5" column="0">
+           <widget class="QLabel" name="labelHidePlaybackControlFullScreen">
+            <property name="toolTip">
+             <string>Show the playback control (the navigation panel at the bottom) also in full screen mode.</string>
+            </property>
+            <property name="whatsThis">
+             <string>Show the playback control (the navigation panel at the bottom) also in full screen mode.</string>
+            </property>
             <property name="text">
-             <string>Theme</string>
+             <string>Show playback control in full screen</string>
             </property>
            </widget>
           </item>
-          <item row="0" column="1">
-           <widget class="QComboBox" name="comboBoxTheme"/>
+          <item row="5" column="1">
+           <widget class="QCheckBox" name="checkBoxPlaybackControlFullScreen">
+            <property name="toolTip">
+             <string>Show the playback control (the navigation panel at the bottom) also in full screen mode.</string>
+            </property>
+            <property name="whatsThis">
+             <string>Show the playback control (the navigation panel at the bottom) also in full screen mode.</string>
+            </property>
+            <property name="text">
+             <string/>
+            </property>
+           </widget>
           </item>
          </layout>
         </widget>
@@ -912,6 +948,47 @@
    <container>1</container>
   </customwidget>
  </customwidgets>
+ <tabstops>
+  <tabstop>tabWidget</tabstop>
+  <tabstop>checkBoxWatchFiles</tabstop>
+  <tabstop>checkBoxContinuePlaybackNewSelection</tabstop>
+  <tabstop>checkBoxAskToSave</tabstop>
+  <tabstop>comboBoxTheme</tabstop>
+  <tabstop>comboBoxSplitLineStyle</tabstop>
+  <tabstop>comboBoxMouseMode</tabstop>
+  <tabstop>pushButtonEditBackgroundColor</tabstop>
+  <tabstop>pushButtonEditGridColor</tabstop>
+  <tabstop>checkBoxPlaybackControlFullScreen</tabstop>
+  <tabstop>groupBoxUpdates</tabstop>
+  <tabstop>comboBoxUpdateSettings</tabstop>
+  <tabstop>groupBoxCaching</tabstop>
+  <tabstop>sliderThreshold</tabstop>
+  <tabstop>checkBoxNrThreads</tabstop>
+  <tabstop>spinBoxNrThreads</tabstop>
+  <tabstop>checkBoxPausPlaybackForCaching</tabstop>
+  <tabstop>checkBoxEnablePlaybackCaching</tabstop>
+  <tabstop>spinBoxThreadLimit</tabstop>
+  <tabstop>lineEditDecoderPath</tabstop>
+  <tabstop>pushButtonDecoderSelectPath</tabstop>
+  <tabstop>pushButtonDecoderClearPath</tabstop>
+  <tabstop>lineEditLibde265File</tabstop>
+  <tabstop>pushButtonLibde265SelectFile</tabstop>
+  <tabstop>pushButtonLibde265ClearFile</tabstop>
+  <tabstop>lineEditLibHMFile</tabstop>
+  <tabstop>pushButtonlibHMSelectFile</tabstop>
+  <tabstop>pushButtonlibHMClearFile</tabstop>
+  <tabstop>lineEditLibJEMFile</tabstop>
+  <tabstop>pushButtonLibJEMSelectFile</tabstop>
+  <tabstop>pushButtonLibJEMClearFile</tabstop>
+  <tabstop>lineEditAVUtil</tabstop>
+  <tabstop>lineEditSWResample</tabstop>
+  <tabstop>lineEditAVCodec</tabstop>
+  <tabstop>lineEditAVFormat</tabstop>
+  <tabstop>pushButtonFFMpegSelectFile</tabstop>
+  <tabstop>pushButtonFFMpegClearFile</tabstop>
+  <tabstop>pushButtonSave</tabstop>
+  <tabstop>pushButtonCancel</tabstop>
+ </tabstops>
  <resources>
   <include location="../images/images.qrc"/>
  </resources>

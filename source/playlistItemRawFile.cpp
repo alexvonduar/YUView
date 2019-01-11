@@ -186,10 +186,9 @@ bool playlistItemRawFile::parseY4MFile()
 
   // Next, there can be any number of parameters. Each paramter starts with a space.
   // The only requirement is, that width, height and framerate are specified.
-  int offset = 9;
+  qint64 offset = 9;
   int width = -1;
   int height = -1;
-  double fps = -1;
   yuvPixelFormat format = yuvPixelFormat(YUV_420, 8, Order_YUV);
 
   while (rawData.at(offset++) == ' ')
@@ -249,7 +248,7 @@ bool playlistItemRawFile::parseY4MFile()
       if (!ok)
         return setError("Error parsing the Y4M header: Invalid framerate denominator.");
 
-      fps = double(nom) / double(den);
+      frameRate = double(nom) / double(den);
     }
     else if (parameterIndicator == 'I' || parameterIndicator == 'A' || parameterIndicator == 'X')
     {
@@ -272,6 +271,13 @@ bool playlistItemRawFile::parseY4MFile()
         format.subsampling = YUV_422;
       else if (formatName == "444")
         format.subsampling = YUV_444;
+
+      if (rawData.at(offset) == 'p' && rawData.at(offset+1) == '1' && rawData.at(offset+2) == '0')
+      {
+        format.bitsPerSample = 10;
+        format.planar = true;
+        offset += 3;
+      }
     }
 
     // If not already there, seek to the next space (a 0x0A ends the header).
@@ -304,7 +310,9 @@ bool playlistItemRawFile::parseY4MFile()
     stride = width * height * 2;
   else if (format.subsampling == YUV_444)
     stride = width * height * 3;
-
+  if (format.bitsPerSample > 8)
+    stride *= 2;
+  
   while (true)
   {
     // Seek the file to 'offset' and read a few bytes
@@ -450,7 +458,7 @@ playlistItemRawFile *playlistItemRawFile::newplaylistItemRawFile(const QDomEleme
   return newFile;
 }
 
-void playlistItemRawFile::loadRawData(int frameIdx)
+void playlistItemRawFile::loadRawData(int frameIdxInternal)
 {
   if (!video->isFormatValid())
     return;
@@ -460,30 +468,31 @@ void playlistItemRawFile::loadRawData(int frameIdx)
   // Load the raw data for the given frameIdx from file and set it in the video
   qint64 fileStartPos;
   if (isY4MFile)
-    fileStartPos = y4mFrameIndices.at(frameIdx);
+    fileStartPos = y4mFrameIndices.at(frameIdxInternal);
   else
-    fileStartPos = frameIdx * getBytesPerFrame();
+    fileStartPos = frameIdxInternal * getBytesPerFrame();
   qint64 nrBytes = getBytesPerFrame();
 
   if (rawFormat == YUV)
   {
     if (dataSource.readBytes(getYUVVideo()->rawYUVData, fileStartPos, nrBytes) < nrBytes)
       return; // Error
-    getYUVVideo()->rawYUVData_frameIdx = frameIdx;
+    getYUVVideo()->rawYUVData_frameIdx = frameIdxInternal;
   }
   else if (rawFormat == RGB)
   {
     if (dataSource.readBytes(getRGBVideo()->rawRGBData, fileStartPos, nrBytes) < nrBytes)
       return; // Error
-    getRGBVideo()->rawRGBData_frameIdx = frameIdx;
+    getRGBVideo()->rawRGBData_frameIdx = frameIdxInternal;
   }
 
-  DEBUG_RAWFILE("playlistItemRawFile::loadRawData %d Done", frameIdx);
+  DEBUG_RAWFILE("playlistItemRawFile::loadRawData %d Done", frameIdxInternal);
 }
 
 ValuePairListSets playlistItemRawFile::getPixelValues(const QPoint &pixelPos, int frameIdx)
 {
-  return ValuePairListSets((rawFormat == YUV) ? "YUV" : "RGB", video->getPixelValues(pixelPos, frameIdx));
+  const int frameIdxInternal = getFrameIdxInternal(frameIdx);
+  return ValuePairListSets((rawFormat == YUV) ? "YUV" : "RGB", video->getPixelValues(pixelPos, frameIdxInternal));
 }
 
 void playlistItemRawFile::getSupportedFileExtensions(QStringList &allExtensions, QStringList &filters)
@@ -523,5 +532,5 @@ void playlistItemRawFile::reloadItemSource()
   video->invalidateAllBuffers();
 
   // Emit that the item needs redrawing and the cache changed.
-  emit signalItemChanged(true, false);
+  emit signalItemChanged(true, RECACHE_NONE);
 }

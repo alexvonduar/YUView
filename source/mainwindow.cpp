@@ -42,9 +42,8 @@
 #include <QShortcut>
 #include "playlistItems.h"
 #include "settingsDialog.h"
-#include "signalsSlots.h"
 
-MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
+MainWindow::MainWindow(bool useAlternativeSources, QWidget *parent) : QMainWindow(parent)
 {
   QSettings settings;
   qRegisterMetaType<indexRange>("indexRange");
@@ -58,7 +57,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
   ui.setupUi(this);
 
   // Create the update handler
-  updater.reset(new updateHandler(this));
+  updater.reset(new updateHandler(this, useAlternativeSources));
 
   setFocusPolicy(Qt::StrongFocus);
 
@@ -157,7 +156,7 @@ void MainWindow::createMenusAndActions()
   for (int i = 0; i < MAX_RECENT_FILES; i++)
   {
     recentFileActions[i] = new QAction(this);
-    connect(recentFileActions[i], &QAction::triggered, this, &MainWindow::openRecentFile);
+    connect(recentFileActions[i].data(), &QAction::triggered, this, &MainWindow::openRecentFile);
     recentFileMenu->addAction(recentFileActions[i]);
   }
   fileMenu->addSeparator();
@@ -270,7 +269,8 @@ void MainWindow::updateRecentFileActions()
 
 void MainWindow::closeEvent(QCloseEvent *event)
 {
-  if (!ui.playlistTreeWidget->getIsSaved())
+  QSettings settings;
+  if (!ui.playlistTreeWidget->getIsSaved() && settings.value("AskToSaveOnExit", true).toBool())
   {
     QMessageBox::StandardButton resBtn = QMessageBox::question(this, "Quit YUView",
       tr("You have not saved the current playlist, are you sure?\n"),
@@ -433,8 +433,6 @@ void MainWindow::focusInEvent(QFocusEvent *event)
 
 void MainWindow::toggleFullscreen()
 {
-  QSettings settings;
-
   // Single window mode. Hide/show all panels and set/restore the main window to/from fullscreen.
 
   if (isFullScreen())
@@ -480,7 +478,9 @@ void MainWindow::toggleFullscreen()
     ui.propertiesDock->hide();
     ui.playlistDockWidget->hide();
     ui.displayDockWidget->hide();
-    ui.playbackControllerDock->hide();
+    QSettings settings;
+    if (!settings.value("ShowPlaybackControlFullScreen", false).toBool())
+      ui.playbackControllerDock->hide();
     ui.fileInfoDock->hide();
     ui.cachingDebugDock->hide();
 

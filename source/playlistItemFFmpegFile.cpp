@@ -108,6 +108,7 @@ playlistItemFFmpegFile::playlistItemFFmpegFile(const QString &ffmpegFilePath)
 
 void playlistItemFFmpegFile::drawItem(QPainter *painter, int frameIdx, double zoomFactor, bool drawRawData)
 {
+  const int frameIdxInternal = getFrameIdxInternal(frameIdx);
   if (loadingDecoder.errorLoadingLibraries())
   {
     infoText = QString("There was an error loading the FFmpeg libraries:\n'") + loadingDecoder.decoderErrorString() + "'\n\n";
@@ -123,24 +124,24 @@ void playlistItemFFmpegFile::drawItem(QPainter *painter, int frameIdx, double zo
                       "can do: apt-get install ffmpeg.");
     // TODO: Add info for MAC
 
-    playlistItem::drawItem(painter, frameIdx, zoomFactor, drawRawData);
+    playlistItem::drawItem(painter, -1, zoomFactor, drawRawData);
   }
   else if (loadingDecoder.errorOpeningFile())
   {
     infoText = QString("There was an error opening the file:\n") + loadingDecoder.decoderErrorString();
-    playlistItem::drawItem(painter, frameIdx, zoomFactor, drawRawData);
+    playlistItem::drawItem(painter, -1, zoomFactor, drawRawData);
   }
-  else if (frameIdx >= 0 && frameIdx < loadingDecoder.getNumberPOCs())
+  else if (frameIdxInternal >= 0 && frameIdxInternal < loadingDecoder.getNumberPOCs())
   {
-    video->drawFrame(painter, frameIdx, zoomFactor, drawRawData);
-    statSource.paintStatistics(painter, frameIdx, zoomFactor);
+    video->drawFrame(painter, frameIdxInternal, zoomFactor, drawRawData);
+    statSource.paintStatistics(painter, frameIdxInternal, zoomFactor);
   }
 }
 
 void playlistItemFFmpegFile::getSupportedFileExtensions(QStringList &allExtensions, QStringList &filters)
 {
   QStringList ext;
-  ext << "avi" << "avr" << "cdxl" << "xl" << "dv" << "dif" << "flm" << "flv" << "flv" << "h261" << "h26l" << "h264" << "264" << "avc" << "cgi" << "ivr" << "lvf" << "m4v" << "mkv" << "mk3d" << "mka" << "mks" << "mjpg" << "mjpeg" << "mpo" << "j2k" << "mov" << "mp4" << "m4a" << "3gp" << "3g2" << "mj2" << "mvi" << "mxg" << "v" << "ogg" << "mjpg" << "viv" << "xmv";
+  ext << "avi" << "avr" << "cdxl" << "xl" << "dv" << "dif" << "flm" << "flv" << "flv" << "h261" << "h26l" << "h264" << "264" << "avc" << "cgi" << "ivr" << "lvf" << "m4v" << "mkv" << "mk3d" << "mka" << "mks" << "mjpg" << "mjpeg" << "mpo" << "j2k" << "mov" << "mp4" << "m4a" << "3gp" << "3g2" << "mj2" << "mvi" << "mxg" << "v" << "ogg" << "mjpg" << "viv" << "xmv" << "ts";
   QString filtersString = "FFMpeg files (";
   for (QString e : ext)
     filtersString.append(QString("*.%1").arg(e));
@@ -206,12 +207,38 @@ infoData playlistItemFFmpegFile::getInfo() const
     info.items.append(infoItem("Resolution", QString("%1x%2").arg(videoSize.width()).arg(videoSize.height()), "The video resolution in pixel (width x height)"));
     info.items.append(infoItem("Num Frames", QString::number(loadingDecoder.getNumberPOCs()), "The number of pictures in the stream."));
     info.items.append(loadingDecoder.getDecoderInfo());
+    if (loadingDecoder.canShowNALInfo())
+      info.items.append(infoItem("NAL units", "Show NAL units", "Show a detailed list of all NAL units.", true));
   }
 
   return info;
 }
 
-void playlistItemFFmpegFile::loadYUVData(int frameIdx, bool caching)
+void playlistItemFFmpegFile::infoListButtonPressed(int buttonID)
+{
+  Q_UNUSED(buttonID);
+
+  fileSourceAVCAnnexBFile file;
+  
+  // Parse the annex B file again and save all the values read
+  if (!file.openFile(plItemNameOrFileName, true))
+    // Opening the file failed.
+    return;
+
+  // The button "Show NAL units" was pressed. Create a dialog with a QTreeView and show the NAL unit list.
+  QDialog newDialog;
+  QTreeView *view = new QTreeView();
+  view->setModel(file.getNALUnitModel());
+  QVBoxLayout *verticalLayout = new QVBoxLayout(&newDialog);
+  verticalLayout->addWidget(view);
+  newDialog.resize(QSize(1000, 900));
+  view->setColumnWidth(0, 400);
+  view->setColumnWidth(1, 50);
+  newDialog.exec();
+}
+
+
+void playlistItemFFmpegFile::loadYUVData(int frameIdxInternal, bool caching)
 {
   if (caching && !cachingEnabled)
     return;
@@ -220,9 +247,9 @@ void playlistItemFFmpegFile::loadYUVData(int frameIdx, bool caching)
     // We can not decode images
     return;
 
-  DEBUG_FFMPEG("playlistItemFFmpegFile::loadYUVData %d %s", frameIdx, caching ? "caching" : "");
+  DEBUG_FFMPEG("playlistItemFFmpegFile::loadYUVData %d %s", frameIdxInternal, caching ? "caching" : "");
 
-  if (frameIdx > startEndFrame.second || frameIdx < 0)
+  if (frameIdxInternal > startEndFrame.second || frameIdxInternal < 0)
   {
     DEBUG_FFMPEG("playlistItemFFmpegFile::loadYUVData Invalid frame index");
     return;
@@ -232,15 +259,15 @@ void playlistItemFFmpegFile::loadYUVData(int frameIdx, bool caching)
   QByteArray decByteArray;
 
   if (caching)
-    decByteArray = cachingDecoder.loadYUVFrameData(frameIdx);
+    decByteArray = cachingDecoder.loadYUVFrameData(frameIdxInternal);
   else
-    decByteArray = loadingDecoder.loadYUVFrameData(frameIdx);
+    decByteArray = loadingDecoder.loadYUVFrameData(frameIdxInternal);
 
   if (!decByteArray.isEmpty())
   {
     videoHandlerYUV *yuvVideo = dynamic_cast<videoHandlerYUV*>(video.data());
     yuvVideo->rawYUVData = decByteArray;
-    yuvVideo->rawYUVData_frameIdx = frameIdx;
+    yuvVideo->rawYUVData_frameIdx = frameIdxInternal;
   }
 }
 
@@ -310,14 +337,14 @@ void playlistItemFFmpegFile::reloadItemSource()
   loadYUVData(0, false);
 }
 
-void playlistItemFFmpegFile::cacheFrame(int idx, bool testMode)
+void playlistItemFFmpegFile::cacheFrame(int frameIdx, bool testMode)
 {
   if (!cachingEnabled)
     return;
 
   // Cache a certain frame. This is always called in a separate thread.
   cachingMutex.lock();
-  video->cacheFrame(idx, testMode);
+  video->cacheFrame(getFrameIdxInternal(frameIdx), testMode);
   cachingMutex.unlock();
 }
 
@@ -345,7 +372,7 @@ void playlistItemFFmpegFile::loadFrame(int frameIdx, bool playing, bool loadRawd
 
     isFrameLoading = false;
     if (emitSignals)
-      emit signalItemChanged(true, false);
+      emit signalItemChanged(true, RECACHE_NONE);
   }
 
   if (playing && (stateYUV == LoadingNeeded || stateYUV == LoadingNeededDoubleBuffer))

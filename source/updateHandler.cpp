@@ -62,6 +62,7 @@ typedef QPair<QString, int> downloadFile;
 // ------------------ updateFileHandler helper class -----------------
 #define UPDATEFILEHANDLER_FILE_NAME "versioninfo.txt"
 #define UPDATEFILEHANDLER_URL "https://raw.githubusercontent.com/IENT/YUViewReleases/master/win/autoupdate/"
+#define UPDATEFILEHANDLER_TESTDEPLOY_URL "https://raw.githubusercontent.com/IENT/YUViewReleases/dev/win/autoupdate/"
 
 class updateFileHandler
 {
@@ -73,13 +74,13 @@ public:
   // which potentially might require an update.
   void readFromFile(QString fileName)
   {
-    DEBUG_UPDATE("updateHandler::loadUpdateFileList");
+    DEBUG_UPDATE("updateFileHandler::readFromFile Current working dir %s", QDir::currentPath().toStdString().c_str());
 
     // Open the file and get all files and their current version (int) from the file.
     QFileInfo updateFileInfo(fileName);
     if (!updateFileInfo.exists() || !updateFileInfo.isFile())
     {
-      DEBUG_UPDATE("updateHandler::loadUpdateFileList local update file %s not found", fileName);
+      DEBUG_UPDATE("updateFileHandler::readFromFile local update file %s not found", fileName.toStdString().c_str());
       return;
     }
 
@@ -115,7 +116,7 @@ public:
     if (line.startsWith("Last Commit"))
     {
       if (line.startsWith("Last Commit: "))
-        DEBUG_UPDATE("updateHandler::loadUpdateFileList Local file last commit: ", lineSplit[2]);
+        DEBUG_UPDATE("updateFileHandler::parseOneLine Local file last commit: %s", lineSplit[2].toStdString().c_str());
       return;
     }
     // Ignore all lines that start with %, / or #
@@ -134,7 +135,7 @@ public:
         else
           // The file does not exist locally. That is strange since it is in the update info file.
           // Files that do not exist locally should always be downloaded so we don't put them into the list.
-          DEBUG_UPDATE("updateHandler::loadUpdateFileList The local file %s could not be found.", lineSplit[0]);
+          DEBUG_UPDATE("updateFileHandler::parseOneLine The local file %s could not be found.", fInfo.absoluteFilePath().toStdString().c_str());
       }
       else
         // Do not check if the file exists
@@ -202,18 +203,14 @@ private:
 
 // ------------------ updateHandler -----------------
 
-updateHandler::updateHandler(QWidget *mainWindow) :
+updateHandler::updateHandler(QWidget *mainWindow, bool useAltSources) :
   mainWidget(mainWindow)
 {
-  updaterStatus = updaterIdle;
-  elevatedRights = false;
-  forceUpdate = false;
-  userCheckRequest = false;
-
   // We always perform the update in the path that the current executable is located in
   // and not in the current working directory.
   QFileInfo info(QCoreApplication::applicationFilePath());
   updatePath = info.absolutePath() + "/";
+  useAlternativeSources = useAltSources;
 
   connect(&networkManager, &QNetworkAccessManager::finished, this, &updateHandler::replyFinished);
   connect(&networkManager, &QNetworkAccessManager::sslErrors, this, &updateHandler::sslErrors);
@@ -315,8 +312,16 @@ void updateHandler::replyFinished(QNetworkReply *reply)
     if (updaterStatus == updaterEstablishConnection && !error)
     {
       // The secure connection was successfully established. Now request the update.txt file
-      DEBUG_UPDATE("updateHandler::replyFinished request version info file from" UPDATEFILEHANDLER_URL UPDATEFILEHANDLER_FILE_NAME);
-      networkManager.get(QNetworkRequest(QUrl(UPDATEFILEHANDLER_URL UPDATEFILEHANDLER_FILE_NAME)));
+      if (useAlternativeSources)
+      {
+        DEBUG_UPDATE("updateHandler::replyFinished request version info file from" UPDATEFILEHANDLER_TESTDEPLOY_URL UPDATEFILEHANDLER_FILE_NAME);
+        networkManager.get(QNetworkRequest(QUrl(UPDATEFILEHANDLER_TESTDEPLOY_URL UPDATEFILEHANDLER_FILE_NAME)));
+      }
+      else
+      {
+        DEBUG_UPDATE("updateHandler::replyFinished request version info file from" UPDATEFILEHANDLER_URL UPDATEFILEHANDLER_FILE_NAME);
+        networkManager.get(QNetworkRequest(QUrl(UPDATEFILEHANDLER_URL UPDATEFILEHANDLER_FILE_NAME)));
+      }
       updaterStatus = updaterChecking;
       return;
     }
@@ -497,9 +502,9 @@ void updateHandler::restartYUView(bool elevated)
   // and it should retry to update.
   HINSTANCE h;
   if (elevated)
-    h = ShellExecute(nullptr, L"runas", fullPathToExe, L"updateElevated", nullptr, SW_SHOWNORMAL);
+    h = ShellExecute(nullptr, L"runas", fullPathToExe, useAlternativeSources ? L"updateElevatedAltSource" : L"updateElevated", nullptr, SW_SHOWNORMAL);
   else
-    h = ShellExecute(nullptr, L"open", fullPathToExe, L"updateElevated", nullptr, SW_SHOWNORMAL);
+    h = ShellExecute(nullptr, L"open", fullPathToExe, useAlternativeSources ? L"updateElevatedAltSource" : L"updateElevated", nullptr, SW_SHOWNORMAL);
   INT_PTR retVal = (INT_PTR)h;
   if (retVal > 32)  // From MSDN: If the function succeeds, it returns a value greater than 32.
   {
@@ -548,8 +553,12 @@ void updateHandler::downloadNextFile()
       currentDownloadFile.first[i] = '/';
   }
 
-  DEBUG_UPDATE("updateHandler::downloadNextFile %s", currentDownloadFile);
-  QString fullURL = UPDATEFILEHANDLER_URL + currentDownloadFile.first;
+  DEBUG_UPDATE("updateHandler::downloadNextFile %s", currentDownloadFile.first.toStdString().c_str());
+  QString fullURL;
+  if (useAlternativeSources)
+    fullURL = UPDATEFILEHANDLER_TESTDEPLOY_URL + currentDownloadFile.first;
+  else
+    fullURL = UPDATEFILEHANDLER_URL + currentDownloadFile.first;
   QNetworkReply *reply = networkManager.get(QNetworkRequest(QUrl(fullURL)));
   connect(reply, &QNetworkReply::downloadProgress, this, &updateHandler::updateDownloadProgress);
 }
@@ -597,10 +606,10 @@ void updateHandler::downloadFinished(QNetworkReply *reply)
             return abortUpdate(QString("YUView was unable to remove the file %1.").arg(renamedFilePath));
         if (!oldFile.rename(newName))
           return abortUpdate(QString("YUView was unable to remove or rename the file %1.").arg(fileInfo.fileName()));
-        DEBUG_UPDATE("updateHandler::downloadFinished The old file could not be deleted but was renamed to %s", newName);
+        DEBUG_UPDATE("updateHandler::downloadFinished The old file could not be deleted but was renamed to %s", newName.toStdString().c_str());
       }
       else
-        DEBUG_UPDATE("updateHandler::downloadFinished Successfully deleted old file %s", fileInfo.fileName());
+        DEBUG_UPDATE("updateHandler::downloadFinished Successfully deleted old file %s", fileInfo.fileName().toStdString().c_str());
     }
 
     // Second check: Is the file located in a subirectory that does not exist?
@@ -621,7 +630,7 @@ void updateHandler::downloadFinished(QNetworkReply *reply)
     {
       newFile.write(data);
       newFile.close();
-      DEBUG_UPDATE("updateHandler::downloadFinished Written downloaded data to %s", currentDownloadFile.first);
+      DEBUG_UPDATE("updateHandler::downloadFinished Written downloaded data to %s", currentDownloadFile.first.toStdString().c_str());
 
       if (downloadFiles.isEmpty())
       {
